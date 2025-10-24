@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Take Jobs - Corporativo</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f0720;
+      --bg-soft: #1a0b33;
+      --card: #2a1352;
+      --card-2: #381a6b;
+      --text: #f7f3ff;
+      --muted: #d9c8ff;
+      --purple: #8a2be2;
+      --purple-2: #c77dff;
+      --shadow: 0 12px 30px rgba(0,0,0,.35);
+    }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    html, body { height:100%; font-family:'Segoe UI', Roboto, Arial, sans-serif; background:var(--bg); color:var(--text); }
+    body { overflow-x:hidden; text-align:center; }
+    button, input { padding:10px; border-radius:8px; border:none; margin:5px; font:inherit; }
+    button { cursor:pointer; font-weight:bold; background:var(--purple-2); color:#fff; }
+    #loginBtnInitial { position:absolute; top:20px; right:20px; padding:8px 14px; font-size:0.85rem; background:rgba(255,255,255,0.15); color:#fff; border-radius:10px; border:none; cursor:pointer; transition:background .3s; }
+    #loginBtnInitial:hover { background:rgba(255,255,255,0.3); }
+    #home { position:relative; width:100%; height:100vh; display:grid; place-items:center; transition:opacity .6s ease; overflow:hidden; background:linear-gradient(135deg, #160a2d 0%, #210a43 50%, #2b0b55 100%); }
+    #loginOverlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:none; justify-content:center; align-items:center; z-index:100; transition:opacity .3s; }
+    #loginOverlay.active { display:flex; opacity:1; }
+    #loginOverlay .loginBox { background:var(--card-2); padding:30px 24px; border-radius:20px; min-width:280px; max-width:400px; text-align:center; }
+    #loginOverlay input { width:80%; margin:8px 0; padding:10px; border-radius:8px; border:none; font-size:1rem; }
+    #loginOverlay button { width:60%; margin-top:10px; padding:10px; border-radius:10px; font-weight:bold; background:var(--purple-2); cursor:pointer; }
+    #cardsScreen { display:none; flex-direction:column; align-items:center; gap:6px; width:100%; min-height:100%; background:var(--bg-soft); color:var(--text); padding:18px 0 22px; opacity:0; transition: opacity .6s ease; position:relative; }
+    .stack { position:relative; width:min(92%,380px); height:min(72vh,620px); margin:10px auto 0; }
+    .card { position:absolute; inset:0; border-radius:20px; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end; background:linear-gradient(135deg, var(--card), var(--card-2)); color:white; box-shadow:var(--shadow); transition:transform .4s ease, opacity .35s ease; user-select:none; touch-action:none; }
+    .card .media { position:absolute; inset:0; }
+    .card img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; filter:saturate(1.02) contrast(1.02); }
+    .fallback { position:absolute; inset:0; background: linear-gradient(135deg, #5e26b6, #2a1352); display:grid; place-items:center; font-size:3rem; font-weight:800; color:#ffffff24; }
+    .gradient { position:absolute; inset:auto 0 0 0; height:44%; background:linear-gradient(to top, rgba(0,0,0,.65), transparent); }
+    .info { position:relative; z-index:2; padding:16px; }
+    .name { font-size:1.1rem; font-weight:800; letter-spacing:.2px; }
+    .role { font-size:.95rem; color:var(--muted); margin-top:2px; }
+    .actions { display:flex; gap:14px; margin:14px auto 0; }
+    .btn { width:62px; height:62px; border-radius:50%; border:0; display:grid; place-items:center; cursor:pointer; color:#120b24; background:linear-gradient(135deg, rgba(255,255,255,.88), rgba(255,255,255,.7)); }
+    .history-wrap { width:min(92%,380px); margin:10px auto 0; }
+    .history-title { color:var(--muted); font-size:.95rem; margin-bottom:6px; }
+    #history { max-height:140px; overflow:auto; display:grid; gap:6px; padding-right:2px; }
+    #history .row { display:flex; align-items:center; gap:8px; background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02)); border:1px solid rgba(255,255,255,.06); padding:8px 10px; border-radius:12px; }
+    .dot { width:10px; height:10px; border-radius:50%; }
+    .dot.like { background:#7ee787; }
+    .dot.nope { background:#ff7b7b; }
+    .dot.super { background:#c77dff; }
+    .time { margin-left:auto; font-size:.85rem; color:var(--muted); }
+    #changePhotoBtn { margin-top:10px; padding:10px 14px; border-radius:10px; background:linear-gradient(135deg, var(--purple-2), var(--purple)); color:#fff; border:none; cursor:pointer; transition: transform .3s; }
+    #changePhotoBtn:hover { transform:scale(1.05); }
+    #previewBox { display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:var(--card-2); padding:20px; border-radius:20px; text-align:center; z-index:200; }
+    #previewBox img { width:200px; height:200px; object-fit:cover; border-radius:15px; margin-bottom:10px; }
+    #previewBox button { margin:5px; padding:8px 14px; border-radius:10px; border:none; cursor:pointer; font-weight:bold; }
+    #previewBox .confirm { background:#7ee787; color:#000; }
+    #previewBox .cancel { background:#ff7b7b; color:#000; }
+    #logoutBtn { margin-top:10px; padding:10px 14px; border-radius:10px; background:linear-gradient(135deg, #ff7b7b, #c92a2a); color:#fff; border:none; cursor:pointer; transition:transform .3s; }
+
+    /* PAINEL ADMIN */
+    #adminPanel {
+      display:none;
+      position:fixed;
+      top:10%;
+      left:50%;
+      transform:translateX(-50%);
+      width:90%;
+      max-width:600px;
+      max-height:70vh;
+      overflow-y:auto;
+      background:var(--card-2);
+      padding:20px;
+      border-radius:20px;
+      box-shadow:var(--shadow);
+      z-index:500;
+      color:#fff;
+      font-size:0.9rem;
+      text-align:left;
+    }
+    #adminPanel table { width:100%; border-collapse:collapse; }
+    #adminPanel th, #adminPanel td { padding:8px; border-bottom:1px solid #444; }
+    #adminPanel th { background:var(--purple); font-weight:600; }
+    #adminPanel caption { font-size:1.2rem; font-weight:700; margin-bottom:12px; text-align:center; }
+    #adminCloseBtn { display:block; margin: 10px auto 0; background:var(--purple-2); padding:8px 14px; border:none; border-radius:10px; cursor:pointer; font-weight:bold; color:#000; width:fit-content; }
+
+    footer { position:absolute; bottom:6px; width:100%; text-align:center; color:#a995d8; font-size:.8rem; opacity:.9; }
+
+    /* ===== ESTILO CHAT ===== */
+    .chatBox {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 300px;
+      height: 400px;
+      background: var(--card-2);
+      border-radius: 15px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      z-index: 1000;
+      overflow: hidden;
+      font-family: 'Segoe UI', Arial, sans-serif;
+    }
+    .chatHeader {
+      background: var(--purple);
+      color: #fff;
+      padding: 8px 12px;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top-left-radius: 15px;
+      border-top-right-radius: 15px;
+    }
+    .chatHeader button {
+      background: transparent;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      font-size: 1.1rem;
+    }
+    .chatMessages {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: linear-gradient(to top, #1a0b33, #0f0720);
+    }
+    .message {
+      padding: 8px 12px;
+      border-radius: 12px;
+      max-width: 75%;
+      word-wrap: break-word;
+      font-size: 0.85rem;
+      position: relative;
+    }
+    .message.me { background: var(--purple-2); color: #fff; align-self: flex-end; border-bottom-right-radius: 0; }
+    .message.them { background: #4a2a91; color: #fff; align-self: flex-start; border-bottom-left-radius: 0; }
+    .messageTime { font-size: 0.7rem; color: #ccc; margin-top: 2px; text-align: right; }
+    .chatInputWrapper { display:flex; gap:4px; padding:8px; background:#1a0b33; }
+    .chatInputWrapper input { flex:1; border-radius:12px; border:none; padding:6px 10px; font-size:0.85rem; }
+    .chatInputWrapper button { border-radius:12px; border:none; padding:6px 10px; background:var(--purple-2); color:#fff; cursor:pointer; font-weight:bold; }
+  </style>
+</head>
+<body>
+  <section id="home">
+    <div class="hero">
+      <h1>Take Jobs</h1>
+      <p>Conecte empresas e talentos com agilidade e profissionalismo.</p>
+      <button id="startBtn" class="cta">Começar</button>
+      <button id="loginBtnInitial">Login</button>
+    </div>
+  </section>
+
+  <div id="loginOverlay" aria-hidden="true">
+    <div class="loginBox" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+      <h2 id="loginTitle">Login / Registrar</h2>
+      <input type="text" id="usuarioInput" placeholder="Digite seu usuário" aria-label="Usuário" />
+      <input type="password" id="senhaInput" placeholder="Senha" aria-label="Senha" />
+      <button onclick="loginOuRegistrar()" aria-label="Entrar ou registrar usuário">Entrar / Registrar</button>
+    </div>
+  </div>
+
+  <section id="cardsScreen" aria-live="polite" aria-atomic="true">
+    <div class="stack" id="stack" aria-label="Lista de perfis para avaliação"></div>
+    <div class="actions" role="group" aria-label="Ações de avaliação">
+      <button class="btn nope" id="btn-nope" aria-label="Rejeitar">X</button>
+      <button class="btn super" id="btn-super" aria-label="Super Like">★</button>
+      <button class="btn like" id="btn-like" aria-label="Curtir">❤</button>
+    </div>
+    <button id="logoutBtn">Logout</button>
+    <button id="changePhotoBtn">Alterar Foto</button>
+    <input type="file" id="fileInput" accept="image/*" style="display:none;" aria-hidden="true"/>
+    <div class="history-wrap">
+      <div class="history-title">Histórico</div>
+      <div id="history" aria-label="Histórico de avaliações"></div>
+    </div>
+  </section>
+
+  <div id="previewBox" role="dialog" aria-modal="true" aria-labelledby="previewTitle" aria-describedby="previewDesc" style="display:none;">
+    <h3 id="previewTitle" style="color:#fff;">Pré-visualização da Foto</h3>
+    <img id="previewImg" src="" alt="Pré-visualização da nova foto" />
+    <div id="previewDesc" style="color:#ddd; margin-bottom:10px;">Confirme para salvar ou cancelar a alteração da foto.</div>
+    <div>
+      <button class="confirm" aria-label="Confirmar alteração da foto">Salvar</button>
+      <button class="cancel" aria-label="Cancelar alteração da foto">Cancelar</button>
+    </div>
+  </div>
+
+  <div id="adminPanel" role="dialog" aria-modal="true" aria-labelledby="adminPanelTitle" aria-describedby="adminPanelDesc">
+    <caption id="adminPanelTitle">Usuários Cadastrados</caption>
+    <div id="adminPanelDesc" style="color:#ccc; margin-bottom:15px;">Lista dos usuários registrados no sistema.</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Usuário</th>
+          <th>Senha</th>
+          <th>Data / Hora Criação</th>
+        </tr>
+      </thead>
+      <tbody id="adminUserTableBody"></tbody>
+    </table>
+    <button id="adminCloseBtn">Fechar</button>
+  </div>
+
+<script>
+const $ = (sel, el=document)=>el.querySelector(sel);
+let usuarios = JSON.parse(localStorage.getItem('usuarios')||'[]');
+let usuarioAtivo=null;
+let fila=[];
+let historico=[];
+let likesData=JSON.parse(localStorage.getItem('likes')||'{}');
+let chatsAtivos={};
+
+$('#loginBtnInitial').onclick=()=>{$('#loginOverlay').classList.add('active');$('#loginOverlay').setAttribute('aria-hidden','false');$('#usuarioInput').focus();}
+$('#startBtn').onclick=()=>{
+  if(!usuarioAtivo){alert('Você precisa fazer login para começar.'); return;}
+  $('#home').style.display='none';
+  $('#cardsScreen').style.display='flex';
+  setTimeout(()=>$('#cardsScreen').style.opacity=1,50);
+  render(); atualizarHistorico();
+}
+
+function loginOuRegistrar(){
+  const usuario=$('#usuarioInput').value.trim();
+  const senha=$('#senhaInput').value.trim();
+  if(!usuario||!senha){alert('Preencha usuário e senha!');return;}
+  if(usuario==='admin'&&senha==='admin123'){
+    usuarioAtivo={usuario:'admin',senha:'admin123',isAdmin:true};
+    $('#loginOverlay').classList.remove('active');$('#loginOverlay').setAttribute('aria-hidden','true');
+    $('#home').style.display='none';$('#cardsScreen').style.display='flex';
+    setTimeout(()=>$('#cardsScreen').style.opacity=1,50);
+    fila=usuarios.filter(u=>u.usuario!=='admin').map(u=>({nome:u.usuario,cargo:'Usuário',foto:u.foto}));
+    render(); atualizarHistorico(); mostrarPainelAdmin(); return;
+  }
+  let user=usuarios.find(u=>u.usuario===usuario);
+  if(!user){user={usuario,senha,foto:'',criado:new Date().toLocaleString()};usuarios.push(user);localStorage.setItem('usuarios',JSON.stringify(usuarios)); alert('Usuário registrado!');}
+  else if(user.senha!==senha){alert('Senha incorreta!');return;}
+  usuarioAtivo=user;
+  $('#loginOverlay').classList.remove('active');$('#loginOverlay').setAttribute('aria-hidden','true');
+  $('#home').style.display='none';$('#cardsScreen').style.display='flex';
+  setTimeout(()=>$('#cardsScreen').style.opacity=1,50);
+  fila=usuarios.filter(u=>u.usuario!==usuarioAtivo.usuario&&u.usuario!=='admin').map(u=>({nome:u.usuario,cargo:'Usuário',foto:u.foto}));
+  render(); atualizarHistorico(); esconderPainelAdmin();
+}
+
+function render(){
+  const stack=$('#stack'); stack.innerHTML='';
+  if(fila.length===0){stack.innerHTML='<div style="color:var(--muted); margin-top:50px;">Sem mais perfis.</div>'; return;}
+  for(let i=0;i<fila.length;i++){
+    const usuario=fila[i]; const card=document.createElement('div'); card.classList.add('card');
+    card.style.zIndex=fila.length-i; card.innerHTML=`<div class="media">${usuario.foto?'<img src="'+usuario.foto+'"/>':'<div class="fallback">👤</div>'}</div><div class="gradient"></div><div class="info"><div class="name">${usuario.nome}</div><div class="role">${usuario.cargo}</div></div>`;
+    stack.appendChild(card);
+  }
+}
+
+function atualizarHistorico(){
+  const hist=$('#history'); hist.innerHTML=''; historico.forEach(h=>{
+    const row=document.createElement('div'); row.className='row';
+    const dot=document.createElement('div'); dot.className='dot '+h.tipo; row.appendChild(dot);
+    const span=document.createElement('span'); span.textContent=h.nome; row.appendChild(span);
+    const time=document.createElement('span'); time.className='time'; time.textContent=h.hora; row.appendChild(time);
+    hist.appendChild(row);
+  });
+}
+
+$('#btn-like').onclick=()=>avaliar('like');
+$('#btn-nope').onclick=()=>avaliar('nope');
+$('#btn-super').onclick=()=>avaliar('super');
+
+function avaliar(tipo){
+  if(fila.length===0) return;
+  const alvo=fila.shift();
+  historico.unshift({nome:alvo.nome,tipo,hora:new Date().toLocaleTimeString()});
+  if(!likesData[alvo.nome]) likesData[alvo.nome]=[];
+  if(tipo==='like'||tipo==='super') likesData[alvo.nome].push(usuarioAtivo.usuario);
+  localStorage.setItem('likes',JSON.stringify(likesData));
+  render(); atualizarHistorico();
+  checarMatch(alvo);
+}
+
+function checarMatch(alvo){
+  const me=usuarioAtivo.usuario; const eles=likesData[me]||[];
+  const eu=likesData[alvo.nome]||[];
+  if(eu.includes(me)){
+    criarChat(alvo);
+  }
+}
+
+$('#logoutBtn').onclick=()=>{location.reload();}
+
+$('#changePhotoBtn').onclick=()=>$('#fileInput').click();
+$('#fileInput').onchange=function(){if(this.files[0]){const fr=new FileReader();fr.onload=e=>{usuarioAtivo.foto=e.target.result;localStorage.setItem('usuarios',JSON.stringify(usuarios)); render();};fr.readAsDataURL(this.files[0]);}}
+
+function mostrarPainelAdmin(){
+  $('#adminPanel').style.display='block';
+  const tbody=$('#adminUserTableBody'); tbody.innerHTML='';
+  usuarios.forEach(u=>{
+    const tr=document.createElement('tr'); tr.innerHTML=`<td>${u.usuario}</td><td>${u.senha}</td><td>${u.criado||'-'}</td>`; tbody.appendChild(tr);
+  });
+}
+function esconderPainelAdmin(){ $('#adminPanel').style.display='none'; }
+$('#adminCloseBtn').onclick=()=>$('#adminPanel').style.display='none';
+
+/* ===== CHAT ===== */
+function criarChat(match){
+  const idChat=[usuarioAtivo.usuario,match.nome].sort().join('_');
+  if(chatsAtivos[idChat]) return;
+  chatsAtivos[idChat]=[];
+  const chatDiv=document.createElement('div'); chatDiv.id='chat_'+idChat; chatDiv.className='chatBox';
+  chatDiv.innerHTML=`<div class="chatHeader">Chat com ${match.nome}<button onclick="fecharChat('${idChat}')">✖</button></div><div id="msgs_${idChat}" class="chatMessages"></div><div class="chatInputWrapper"><input id="input_${idChat}" type="text" placeholder="Digite..." /><button onclick="enviarMsg('${idChat}')">Enviar</button></div>`;
+  document.body.appendChild(chatDiv);
+}
+
+function fecharChat(id){ const el=$('#chat_'+id); if(el) el.remove(); delete chatsAtivos[id]; }
+
+function enviarMsg(id){ const inp=$('#input_'+id); if(!inp.value.trim()) return; const msg={de:usuarioAtivo.usuario,msg:inp.value,hora:new Date().toLocaleTimeString()}; chatsAtivos[id].push(msg); inp.value=''; atualizarMsgs(id); setTimeout(()=>respostaFake(id),600); }
+function atualizarMsgs(id){ const msgsDiv=$('#msgs_'+id); msgsDiv.innerHTML=''; chatsAtivos[id].forEach(m=>{ const div=document.createElement('div'); div.classList.add('message'); div.classList.add(m.de===usuarioAtivo.usuario?'me':'them'); div.innerHTML=`${m.msg}<div class="messageTime">${m.hora}</div>`; msgsDiv.appendChild(div); }); msgsDiv.scrollTop=msgsDiv.scrollHeight; }
+
+function respostaFake(id){
+  const matchName=id.split('_').find(n=>n!==usuarioAtivo.usuario);
+  const msg={de:matchName,msg:'Olá, bem vindo ao "Take Jobs", Aguarde o usuario se conectar e boa conversa',hora:new Date().toLocaleTimeString()};
+  chatsAtivos[id].push(msg); atualizarMsgs(id);
+}
+</script>
+</body>
+</html>
